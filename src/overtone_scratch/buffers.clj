@@ -15,14 +15,13 @@
 (def metro (metronome 64))
 (def mybuffer (set-up-buffer metro 4))
 
-(defn get-buffer-pos
-  [m buf]
+(defn get-buffer-pos [m buf]
   (let
-      [size (get (buffer-info buf) :size)
-       curr-frame (* (now) (server-sample-rate))]
+      [size (buffer-size buf)
+       curr-frame (* (now) (server-sample-rate) 0.001)]
     (mod curr-frame size)))
 
-(get (buffer-info mybuffer) :size)
+(buffer-size mybuffer)
 (get-buffer-pos metro mybuffer)
 
 (defn beat-player [m]
@@ -61,7 +60,7 @@
         dest-pos (phasor:ar 0 1 pos (+ pos (buf-frames:kr dest-buf)))]
 
     (buf-wr [data] dest-buf dest-pos 0)
-    (out live-bus data)
+    ;(out live-bus data)
     ))
 
 (show-graphviz-synth copybuf)
@@ -78,4 +77,8 @@
   (out 0 (buf-rd 1 buf (phasor:ar 0 1 0 (buf-frames:kr buf)))))
 
 (buf-player (:id kick) 1)
-(buf-player (:id mybuffer))
+
+(defn synchronized-buf-player [m buf]
+  (at (m) (buf-player (:id buf))))
+
+(synchronized-buf-player metro mybuffer)
