@@ -15,14 +15,14 @@
 (def metro (metronome 64))
 (def mybuffer (set-up-buffer metro 4))
 
-(defn get-buffer-pos [m buf]
+(defn get-buffer-pos [buf]
   (let
       [size (buffer-size buf)
        curr-frame (* (now) (server-sample-rate) 0.001)]
     (mod curr-frame size)))
 
 (buffer-size mybuffer)
-(get-buffer-pos metro mybuffer)
+(get-buffer-pos mybuffer)
 
 (defn beat-player [m]
   (at (m) (kick))
@@ -30,20 +30,13 @@
 (beat-player metro)
 
 ;; trying to write a one into the buffer at the current time
-(buffer-write! mybuffer (get-buffer-pos metro mybuffer) [1])
+(buffer-write! mybuffer (get-buffer-pos mybuffer) [1])
 
 (buffer-write! mybuffer 110250 [1])
 (get (buffer-read mybuffer 110250 1) 0) ;; this seems to not work?!
 (get (buffer-data mybuffer) 110250)
 
 (stop)
-
-;; trying to manyally copy the kick into mybuffer
-(def kick-data (buffer-data kick))
-
-(buffer-write! mybuffer (get-buffer-pos metro mybuffer) kick-data) ;; too much data
-(buffer-write! mybuffer (get-buffer-pos metro mybuffer) (take 5000 kick-data)) ;; this sounds funny but may just be an artifact of having only the beginning of the sample
-(buffer-write-relay! mybuffer (get-buffer-pos metro mybuffer) kick-data) ;; doesn't (always) seem to work. could it be a wraparound problem?!
 
 ;; next step would be to run a buf-rd that copies the kick onto mybuffer
 
@@ -60,16 +53,10 @@
         dest-pos (phasor:ar 0 1 pos (+ pos (buf-frames:kr dest-buf)))]
 
     (buf-wr [data] dest-buf dest-pos 0)
-    ;(out live-bus data)
+    (out live-bus data)
     ))
 
 (show-graphviz-synth copybuf)
-
-; copy kick to mybuffer (at the current position)
-(copybuf :src-buf kick :dest-buf mybuffer :pos (get-buffer-pos metro mybuffer))
-
-; empty the buffer
-(buffer-write-relay! mybuffer (repeat (buffer-size mybuffer) 0))
 
 ;; loop-play the buffer
 (defsynth buf-player [buf 0]
@@ -78,7 +65,20 @@
 
 (buf-player (:id kick) 1)
 
-(defn synchronized-buf-player [m buf]
-  (at (m) (buf-player (:id buf))))
+; synchronize playback of our buffer to the the metronome
 
-(synchronized-buf-player metro mybuffer)
+(defn metro-buf-player [m buf]
+  (at (metro-bar m (metro-bar m)) (buf-player (:id buf))))
+
+(metro-buf-player metro mybuffer)
+
+(defn time-passed-in-bar [m]
+  (let [lastbar (metro-bar m (dec (metro-bar m)))]
+    (- (now) lastbar)))
+
+(time-passed-in-bar metro)
+
+(copybuf :src-buf kick :dest-buf mybuffer :pos (* (time-passed-in-bar metro) (server-sample-rate) 0.001))
+
+; empty the buffer
+(buffer-write-relay! mybuffer (repeat (buffer-size mybuffer) 0))
