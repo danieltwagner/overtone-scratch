@@ -78,7 +78,22 @@
 
 (time-passed-in-bar metro)
 
-(copybuf :src-buf kick :dest-buf mybuffer :pos (* (time-passed-in-bar metro) (server-sample-rate) 0.001))
+(defn addnow [buf] (copybuf :src-buf buf :dest-buf mybuffer :pos (* (time-passed-in-bar metro) (server-sample-rate) 0.001)))
+(kicknow)
 
 ; empty the buffer
 (buffer-write-relay! mybuffer (repeat (buffer-size mybuffer) 0))
+
+
+
+
+
+; touch osc
+(def server (osc-server 44100 "osc-clj"))
+
+(zero-conf-on)
+(zero-conf-off)
+
+(osc-handle server "/7/push13" (fn [msg] (if (== 1 (first (:args msg))) (addnow kick))))
+(osc-handle server "/7/push14" (fn [msg] (if (== 1 (first (:args msg))) (addnow hat))))
+(osc-rm-all-handlers)
