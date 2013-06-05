@@ -2,18 +2,14 @@
   (:use overtone.live))
 
 (def hat (sample (freesound-path 801)))
-(hat)
-
 (def kick (sample (freesound-path 132584)))
-(kick)
 
 ; create a buffer of a length that is a multiple of metronome ticks
-(defn set-up-buffer [m num-ticks]
+(defn create-synched-buffer [m num-ticks]
   (buffer (/ (* num-ticks (metro-tick m) (server-sample-rate)) 1000)))
 
-
 (def metro (metronome 64))
-(def mybuffer (set-up-buffer metro 4))
+(def mybuffer (create-synched-buffer metro 4))
 
 (defn get-buffer-pos [buf]
   (let
@@ -28,15 +24,6 @@
   (at (m) (kick))
   (apply-at (m (m)) #'beat-player [m])) ;; the original example also didn't do this at every beat!
 (beat-player metro)
-
-;; trying to write a one into the buffer at the current time
-(buffer-write! mybuffer (get-buffer-pos mybuffer) [1])
-
-(buffer-write! mybuffer 110250 [1])
-(get (buffer-read mybuffer 110250 1) 0) ;; this seems to not work?!
-(get (buffer-data mybuffer) 110250)
-
-(stop)
 
 ;; next step would be to run a buf-rd that copies the kick onto mybuffer
 
@@ -84,9 +71,17 @@
 
 ; empty the buffer
 (buffer-write-relay! mybuffer (repeat (buffer-size mybuffer) 0))
+(stop)
 
-
-
+;; next steps:
+;; - make arbitrary-length buffers work
+;;   - when creating a buffer, start playing (at the start of a beat might make life easier?)
+;;   - store the time when we start playing in a map together with a reference to the buffer
+;;   - when adding to the buffer, get the time difference between now and when we started playing (mod length of buffer)
+;;   - that index is where we want to start copying the sound to
+;; - find out why many quick kicks produce an artifact in the buffer but not if multiple synths play?!
+;; - make a variation of addnow that copies from a bus, so we can record out (be careful about node ordering!)
+;; - give feedback through touchOSC?
 
 
 ; touch osc
@@ -100,5 +95,7 @@
 
 (osc-handle server "/7/push9" (fn [msg] (if (== 1 (first (:args msg))) (kick))))
 (osc-handle server "/7/push10" (fn [msg] (if (== 1 (first (:args msg))) (hat))))
+
+(osc-send server "/7/push13" 1)
 
 (osc-rm-all-handlers)
