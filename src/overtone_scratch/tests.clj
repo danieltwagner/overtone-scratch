@@ -1,3 +1,6 @@
+(ns overtone-scratch.tests
+  (:use overtone.live))
+
 (demo(saw [100 101]))
 (overtone.inst.kick)
 
@@ -186,3 +189,36 @@
 (def f (foo))
 
 (stop)
+
+;; midi
+
+(connected-midi-devices)
+(event-debug-on)
+(event-debug-off)
+
+(def kb (midi-in "Port 1"))
+(def kbout (midi-out "Port 1"))
+
+(midi-note-on kbout 60 100)
+(midi-note-off kbout 60)
+
+;; this is a Daft Punk's "Giorgio" theme playing on the midi instrument
+
+(def repetition-sub-a (map note [:C5, :A3, :B4, :A3, :C5, :E5, :A3, :A4, :C5, :A3, :B4, :A3, :C5, :A4]))
+(def repetition-a (concat (map note [:A4, :A3]) repetition-sub-a (map note [:A3, :A4]) repetition-sub-a))
+
+(def metro (metronome (* 4 113)))
+(metro)
+
+(defn midi-player
+  [beat notes multiplier]
+  (let [n     (first notes)
+        notes (next notes)
+        next-beat (inc beat)]
+    (when n
+      (at (metro beat)
+          (midi-note-on kbout n 100))
+      (apply-at  (metro next-beat) #'midi-player [next-beat notes multiplier])
+      )))
+
+(midi-player (metro) repetition-a 1)
