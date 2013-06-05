@@ -50,9 +50,10 @@
 
 (defsynth copybuf [src-buf 0 dest-buf 0 live-bus 0 pos 0]
   (let [data     (play-buf-once src-buf)
-        dest-pos (phasor:ar 0 1 pos (+ pos (buf-frames:kr dest-buf)))]
+        dest-pos (phasor:ar 0 1 pos (+ pos (buf-frames:kr dest-buf)))
+        dest-val (buf-rd 1 dest-buf dest-pos 0)]
 
-    (buf-wr [data] dest-buf dest-pos 0)
+    (buf-wr [(+ data dest-val)] dest-buf dest-pos 0)
     (out live-bus data)
     ))
 
@@ -79,7 +80,7 @@
 (time-passed-in-bar metro)
 
 (defn addnow [buf] (copybuf :src-buf buf :dest-buf mybuffer :pos (* (time-passed-in-bar metro) (server-sample-rate) 0.001)))
-(kicknow)
+(addnow kick)
 
 ; empty the buffer
 (buffer-write-relay! mybuffer (repeat (buffer-size mybuffer) 0))
@@ -96,4 +97,8 @@
 
 (osc-handle server "/7/push13" (fn [msg] (if (== 1 (first (:args msg))) (addnow kick))))
 (osc-handle server "/7/push14" (fn [msg] (if (== 1 (first (:args msg))) (addnow hat))))
+
+(osc-handle server "/7/push9" (fn [msg] (if (== 1 (first (:args msg))) (kick))))
+(osc-handle server "/7/push10" (fn [msg] (if (== 1 (first (:args msg))) (hat))))
+
 (osc-rm-all-handlers)
